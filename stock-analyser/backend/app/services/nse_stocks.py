@@ -1,0 +1,65 @@
+# Indian NSE Stock Universe — NIFTY 50 + NIFTY Next 50 + Top Midcap 100
+# Yahoo Finance uses the ".NS" suffix for NSE-listed stocks.
+
+NIFTY50 = [
+    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
+    "HINDUNILVR", "ITC", "KOTAKBANK", "LT", "AXISBANK",
+    "SBIN", "BHARTIARTL", "ASIANPAINT", "BAJFINANCE", "MARUTI",
+    "NESTLEIND", "M&M", "SUNPHARMA", "TITAN", "TATAMOTORS",
+    "WIPRO", "BAJAJFINSV", "HCLTECH", "ULTRACEMCO", "POWERGRID",
+    "NTPC", "ONGC", "ADANIENT", "ADANIPORTS", "TECHM",
+    "GRASIM", "DIVISLAB", "DRREDDY", "CIPLA", "EICHERMOT",
+    "BPCL", "COALINDIA", "HINDALCO", "JSWSTEEL", "TATASTEEL",
+    "INDUSINDBK", "BAJAJ-AUTO", "APOLLOHOSP", "BRITANNIA",
+    "TATACONSUM", "LTIM", "SHRIRAMFIN", "BEL", "TRENT", "HEROMOTOCO",
+]
+
+NIFTY_NEXT50 = [
+    "ADANIGREEN", "ADANITRANS", "AMBUJACEM", "AUROPHARMA", "BANDHANBNK",
+    "BANKBARODA", "BERGEPAINT", "BOSCHLTD", "CANBK", "CHOLAFIN",
+    "CUMMINSIND", "DLF", "DMART", "GAIL", "GODREJCP",
+    "GODREJPROP", "HAVELLS", "HINDZINC", "ICICIGI", "ICICIPRULI",
+    "IOC", "IRCTC", "JINDALSTEL", "LUPIN", "MUTHOOTFIN",
+    "NAUKRI", "PAGEIND", "PETRONET", "PFC", "PIDILITIND",
+    "PNB", "RECLTD", "SBICARD", "SHREECEM", "SIEMENS",
+    "SRF", "TORNTPHARM", "TRENT", "TVSMOTOR", "ZOMATO",
+    "ZYDUSLIF", "BAJAJHSG", "CGPOWER", "COLPAL", "CONCOR",
+    "CESC", "FEDERALBNK", "HDFCAMC", "INDHOTEL", "PRESTIGE",
+]
+
+NIFTY_MIDCAP = [
+    "ABCAPITAL", "ABFRL", "ALKEM", "APLLTD", "ASHOKLEY",
+    "ASTRAL", "AUROPHARMA", "BALKRISIND", "BATAINDIA", "BIKAJI",
+    "BIOCON", "BLUEDART", "CANFINHOME", "CASTROLIND", "CELEBI",
+    "CHAMBLFERT", "CROMPTON", "CUB", "DABUR", "DEEPAKNTR",
+    "DELTACORP", "DIXON", "ENGINERSIN", "ESCORTS", "EXIDEIND",
+    "FINCABLES", "FLUOROCHEM", "FORTIS", "GLENMARK", "GNFC",
+    "GPIL", "GRAPHITE", "GREAVESCOT", "GSFC", "GSPL",
+    "HINDPETRO", "HUDCO", "IDFCFIRSTB", "IIFL", "INDIGO",
+    "INDUSTOWER", "IRFC", "JKCEMENT", "JSWENERGY", "JUBLFOOD",
+    "KAJARIACER", "KANSAINER", "KEI", "KENNAMETAL", "KPITTECH",
+    "LAURUSLABS", "LICHSGFIN", "LINDEINDIA", "LUXIND", "M&MFIN",
+    "MANAPPURAM", "MARICO", "METROPOLIS", "MPHASIS", "MRF",
+    "NATCOPHARM", "NBCC", "NHPC", "NMDC", "OFSS",
+    "PERSISTENT", "PETRONET", "POLYCAB", "PVR", "RAMCOCEM",
+    "ROUTE", "SCHAEFFLER", "SONACOMS", "STAR", "SUNDARMFIN",
+    "SUPREMEIND", "SUNTV", "SUZLON", "TANLA", "TIINDIA",
+    "TRIDENT", "TTKPRESTIG", "TVSHLTD", "UCOBANK", "UJJIVAN",
+    "UNIONBANK", "VEDL", "VOLTAS", "WHIRLPOOL", "ZEEL",
+]
+
+# Combined universe for daily scanning
+ALL_STOCKS = list(dict.fromkeys(NIFTY50 + NIFTY_NEXT50 + NIFTY_MIDCAP))
+
+
+def get_nse_symbol(symbol: str) -> str:
+    """Append .NS suffix for Yahoo Finance NSE lookup."""
+    symbol = symbol.upper().strip()
+    if not symbol.endswith(".NS") and not symbol.endswith(".BO"):
+        return f"{symbol}.NS"
+    return symbol
+
+
+def get_all_symbols() -> list[str]:
+    """Return full stock universe."""
+    return ALL_STOCKS

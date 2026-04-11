@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: stock-analyser-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-analyser-db
+          property: connectionString
+      - key: DEBUG
+        value: "False"
+      - key: PRE_MARKET_ANALYSIS_TIME
+        value: "08:30"
