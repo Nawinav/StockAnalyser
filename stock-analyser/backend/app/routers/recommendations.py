@@ -72,7 +72,8 @@ def get_today_recommendations(db: Session = Depends(get_db)):
     recs = (
         db.query(DailyRecommendation)
         .filter(DailyRecommendation.trade_date == today)
-        .order_by(DailyRecommendation.rank)
+        .order_by(DailyRecommendation.score.desc(), DailyRecommendation.rank.asc())
+        .limit(settings.MAX_RECOMMENDATIONS)
         .all()
     )
 
