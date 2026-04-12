@@ -11,5 +11,9 @@ services:
           property: connectionString
       - key: DEBUG
         value: "False"
+      - key: ENABLE_SCHEDULER
+        value: "True"
       - key: PRE_MARKET_ANALYSIS_TIME
         value: "08:30"
+      - key: TIMEZONE
+        value: "Asia/Kolkata"

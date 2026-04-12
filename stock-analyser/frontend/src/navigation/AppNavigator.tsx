@@ -9,9 +9,23 @@ import { HistoryScreen }     from '../screens/HistoryScreen';
 import { SearchScreen }      from '../screens/SearchScreen';
 import { StockDetailScreen } from '../screens/StockDetailScreen';
 import { Colors }            from '../theme';
+import { Recommendation }    from '../types';
 
-const Tab   = createBottomTabNavigator();
-const Stack = createStackNavigator();
+type RootTabParamList = {
+  Home: undefined;
+  History: undefined;
+  Search: undefined;
+};
+
+type RootStackParamList = {
+  HomeMain: undefined;
+  HistoryMain: undefined;
+  SearchMain: undefined;
+  StockDetail: { symbol: string; rec?: Recommendation };
+};
+
+const Tab   = createBottomTabNavigator<RootTabParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 const screenOptions = {
   headerStyle: { backgroundColor: Colors.surface },
@@ -30,9 +44,10 @@ function HomeStack() {
       />
       <Stack.Screen
         name="StockDetail"
-        component={StockDetailScreen}
-        options={({ route }: any) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
-      />
+        options={({ route }) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
+      >
+        {(props) => <StockDetailScreen {...props} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -43,9 +58,10 @@ function HistoryStack() {
       <Stack.Screen name="HistoryMain" component={HistoryScreen} options={{ title: 'History' }} />
       <Stack.Screen
         name="StockDetail"
-        component={StockDetailScreen}
-        options={({ route }: any) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
-      />
+        options={({ route }) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
+      >
+        {(props) => <StockDetailScreen {...props} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -56,9 +72,10 @@ function SearchStack() {
       <Stack.Screen name="SearchMain" component={SearchScreen} options={{ title: 'Analyse Any Stock' }} />
       <Stack.Screen
         name="StockDetail"
-        component={StockDetailScreen}
-        options={({ route }: any) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
-      />
+        options={({ route }) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
+      >
+        {(props) => <StockDetailScreen {...props} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

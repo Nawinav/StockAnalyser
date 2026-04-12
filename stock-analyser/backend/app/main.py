@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import get_cors_origins, settings
 from app.database import init_db
 from app.scheduler import start_scheduler, stop_scheduler
 from app.routers import recommendations, stocks, market
@@ -25,11 +25,15 @@ async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────────
     logger.info("Starting Indian Stock Analyser API...")
     init_db()
-    start_scheduler()
+    if settings.ENABLE_SCHEDULER:
+        start_scheduler()
+    else:
+        logger.info("Scheduler disabled by configuration.")
     logger.info("API ready.")
     yield
     # ── Shutdown ─────────────────────────────────────────────────────────────
-    stop_scheduler()
+    if settings.ENABLE_SCHEDULER:
+        stop_scheduler()
     logger.info("API shut down cleanly.")
 
 
@@ -47,7 +51,7 @@ app = FastAPI(
 # Allow requests from local React Native / Expo dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],     # Restrict to specific origins in production
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

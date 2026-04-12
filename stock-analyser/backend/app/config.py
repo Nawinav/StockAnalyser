@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import List
 
 
 class Settings(BaseSettings):
@@ -7,6 +6,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "Indian Stock Analyser"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    ENABLE_SCHEDULER: bool = True
+    CORS_ORIGINS: str = "*"
 
     # Server
     HOST: str = "0.0.0.0"
@@ -45,3 +46,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_cors_origins() -> list[str]:
+    if settings.CORS_ORIGINS.strip() == "*":
+        return ["*"]
+
+    return [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
