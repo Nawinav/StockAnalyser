@@ -9,7 +9,7 @@ import { TodayResponse, MarketStatus, StockAnalysis, Recommendation } from '../t
 const BASE_URL: string =
   process.env.EXPO_PUBLIC_API_URL ||
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ||
-  'http://localhost:8000/api';
+  'https://stockanalyser-9ann.onrender.com/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
