@@ -19,6 +19,7 @@ interface Props {
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const qc = useQueryClient();
   const [triggering, setTriggering] = useState(false);
+  const MAX_PICKS = 10;
 
   const {
     data: todayData,
@@ -45,6 +46,33 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     qc.invalidateQueries({ queryKey: ['market-status'] });
   }, [qc]);
 
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const waitForFreshAnalysis = async (previousAnalyzedAt?: string) => {
+    const timeoutMs = 7 * 60 * 1000;
+    const pollEveryMs = 10 * 1000;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const queryResult = await refetch();
+      const latest = queryResult.data;
+
+      const isFreshRun = !!latest?.analyzed_at && latest.analyzed_at !== previousAnalyzedAt;
+      const hasTopPicks = (latest?.recommendations?.length ?? 0) >= MAX_PICKS;
+
+      if (isFreshRun && hasTopPicks) {
+        qc.invalidateQueries({ queryKey: ['today'] });
+        qc.invalidateQueries({ queryKey: ['market-status'] });
+        Alert.alert('Analysis Complete', 'Today\'s Picks have been updated with the latest live market data.');
+        return;
+      }
+
+      await wait(pollEveryMs);
+    }
+
+    Alert.alert('Still Processing', 'Analysis is taking longer than expected. Pull to refresh in a minute.');
+  };
+
   const handleTriggerAnalysis = async () => {
     Alert.alert(
       'Run Analysis Now',
@@ -57,8 +85,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onPress: async () => {
             setTriggering(true);
             try {
+              const previousAnalyzedAt = todayData?.analyzed_at;
               await triggerAnalysis();
-              Alert.alert('Analysis Started', 'Check back in ~5 minutes for results.');
+              Alert.alert('Analysis Started', 'Fetching live market data and recalculating scores...');
+              await waitForFreshAnalysis(previousAnalyzedAt);
             } catch {
               Alert.alert('Error', 'Could not connect to the backend. Make sure the server is running.');
             } finally {

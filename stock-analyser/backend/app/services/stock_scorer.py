@@ -229,9 +229,8 @@ def score_stock(
     score += fund_eval.score
     reasons += fund_eval.reasons
 
-    # ── Minimum score gate ─────────────────────────────────────────────────
-    if score < settings.MIN_SCORE_THRESHOLD:
-        return None
+    # Do not drop low-scoring candidates here. We always rank all valid stocks
+    # and return top-N by score so the UI consistently shows today's 10 picks.
 
     # ── Entry / Stop Loss / Target Calculation ─────────────────────────────
     entry = round(float(last["close"]), 2)
