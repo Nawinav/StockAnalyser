@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_cors_origins, settings
 from app.database import init_db
-from app.scheduler import start_scheduler, stop_scheduler
+from app.scheduler import start_scheduler, stop_scheduler, seed_if_empty
 from app.routers import recommendations, stocks, market, intraday, longterm, watchlist
 
 logging.basicConfig(
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     init_db()
     if settings.ENABLE_SCHEDULER:
         start_scheduler()
+        seed_if_empty()
     else:
         logger.info("Scheduler disabled by configuration.")
     logger.info("API ready.")

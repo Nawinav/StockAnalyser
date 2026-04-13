@@ -163,11 +163,18 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     niftyTrend === 'bearish' ? Colors.loss + '22' :
     Colors.border;
 
-  const snapshotStr = intradayData?.snapshot_at
-    ? new Date(intradayData.snapshot_at).toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit',
-      })
+  const snapshotDate = intradayData?.snapshot_at ? new Date(intradayData.snapshot_at) : null;
+  const snapshotIsToday = snapshotDate
+    ? snapshotDate.toDateString() === new Date().toDateString()
+    : false;
+  const snapshotStr = snapshotDate
+    ? (snapshotIsToday
+        ? `Today at ${snapshotDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+        : snapshotDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) +
+          ` at ${snapshotDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`)
     : null;
+
+  const isMarketOpen = marketStatus?.is_open ?? false;
 
   // ── Section tabs ──────────────────────────────────────────────────────────
   const renderTabs = () => (
@@ -224,17 +231,28 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </View>
       <View style={styles.refreshRow}>
-        <View style={styles.liveChip}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>Auto-refresh every 10 min</Text>
-        </View>
-        <View style={styles.countdownChip}>
-          <Ionicons name="timer-outline" size={12} color={Colors.accent} />
-          <Text style={styles.countdownText}>Next: {fmtCountdown(countdown)}</Text>
-        </View>
+        {isMarketOpen ? (
+          <>
+            <View style={styles.liveChip}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Live · Refreshing every 10 min</Text>
+            </View>
+            <View style={styles.countdownChip}>
+              <Ionicons name="timer-outline" size={12} color={Colors.accent} />
+              <Text style={styles.countdownText}>Next: {fmtCountdown(countdown)}</Text>
+            </View>
+          </>
+        ) : (
+          <View style={styles.marketClosedChip}>
+            <Ionicons name="moon-outline" size={13} color={Colors.textMuted} />
+            <Text style={styles.marketClosedText}>
+              Market closed · {marketStatus?.status ?? 'After hours'}
+            </Text>
+          </View>
+        )}
       </View>
       {snapshotStr && (
-        <Text style={styles.snapshotText}>Last updated at {snapshotStr}</Text>
+        <Text style={styles.snapshotText}>Last snapshot: {snapshotStr}</Text>
       )}
     </View>
   );
@@ -245,7 +263,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.sectionTitleRow}>
         <View>
           <Text style={styles.sectionTitle}>Long-Term Picks</Text>
-          <Text style={styles.sectionSubtitle}>Fundamental-heavy analysis · Updated daily</Text>
+          <Text style={styles.sectionSubtitle}>
+            Fundamental-heavy · Updated daily
+            {longTermData?.run_date
+              ? ` · ${new Date(longTermData.run_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+              : ''}
+          </Text>
         </View>
         <View style={styles.infoChip}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.info} />
@@ -272,14 +295,24 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // ── Empty states ──────────────────────────────────────────────────────────
   const renderIntradayEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="flash-outline" size={56} color={Colors.textMuted} />
-      <Text style={styles.emptyTitle}>No intraday picks yet</Text>
-      <Text style={styles.emptySub}>
-        Picks refresh every 10 minutes{'\n'}during market hours (09:15 – 15:30 IST).
+      <Ionicons
+        name={isMarketOpen ? 'flash-outline' : 'moon-outline'}
+        size={56}
+        color={Colors.textMuted}
+      />
+      <Text style={styles.emptyTitle}>
+        {isMarketOpen ? 'No intraday picks yet' : 'Market is closed'}
       </Text>
-      <TouchableOpacity style={styles.refreshBtn} onPress={() => refetchIntraday()}>
-        <Text style={styles.refreshBtnText}>Refresh Now</Text>
-      </TouchableOpacity>
+      <Text style={styles.emptySub}>
+        {isMarketOpen
+          ? 'Picks refresh every 10 minutes during market hours (09:15 – 15:30 IST).'
+          : `Market opens at 09:15 IST on weekdays.\nLast session data is shown once available.`}
+      </Text>
+      {isMarketOpen && (
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetchIntraday()}>
+          <Text style={styles.refreshBtnText}>Refresh Now</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -461,6 +494,12 @@ const styles = StyleSheet.create({
   },
   countdownText: { color: Colors.accent, fontSize: 11, fontWeight: '700' },
   snapshotText: { color: Colors.textMuted, fontSize: 11 },
+  marketClosedChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.border,
+    borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  marketClosedText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
 
   // Long-term header
   infoChip: {

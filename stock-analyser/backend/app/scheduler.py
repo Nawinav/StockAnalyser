@@ -177,7 +177,7 @@ def start_scheduler():
 
     _scheduler = BackgroundScheduler(timezone=IST)
 
-    # Job 1 — Intraday refresh every 10 minutes
+    # Job 1 — Intraday refresh every 10 minutes (market-hours guard is inside the job)
     _scheduler.add_job(
         func=run_intraday_refresh,
         trigger=IntervalTrigger(minutes=10, timezone=IST),
@@ -186,7 +186,25 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    # Job 2 — Long-term analysis once daily at 08:00 IST (Mon–Fri)
+    # Job 2 — Market open: first snapshot exactly at 09:16 IST so data is ready immediately
+    _scheduler.add_job(
+        func=run_intraday_refresh,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=9, minute=16, timezone=IST),
+        id="market_open_snapshot",
+        name="Market Open First Intraday Snapshot",
+        replace_existing=True,
+    )
+
+    # Job 3 — Market close: final snapshot at 15:25 IST to capture end-of-day state
+    _scheduler.add_job(
+        func=run_intraday_refresh,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=15, minute=25, timezone=IST),
+        id="market_close_snapshot",
+        name="Market Close Final Intraday Snapshot",
+        replace_existing=True,
+    )
+
+    # Job 4 — Long-term analysis once daily at 08:00 IST (Mon–Fri)
     _scheduler.add_job(
         func=run_long_term_analysis_job,
         trigger=CronTrigger(day_of_week="mon-fri", hour=8, minute=0, timezone=IST),
@@ -196,7 +214,33 @@ def start_scheduler():
     )
 
     _scheduler.start()
-    logger.info("[Scheduler] Started — intraday every 10 min | long-term daily at 08:00 IST")
+    logger.info("[Scheduler] Started — intraday every 10 min (+ 09:16 open, 15:25 close) | long-term daily at 08:00 IST")
+
+
+def seed_if_empty():
+    """
+    Called once on startup.
+    If the DB has no data yet (fresh install), immediately queues background
+    analyses so the UI is never blank when first opened.
+    """
+    import threading
+    from app.database import SessionLocal
+    from app.models import LongTermRecommendation, IntradaySnapshot
+
+    db = SessionLocal()
+    try:
+        has_longterm = db.query(LongTermRecommendation.id).first() is not None
+        has_intraday = db.query(IntradaySnapshot.id).first() is not None
+    finally:
+        db.close()
+
+    if not has_longterm:
+        logger.info("[Startup] No long-term data found — queuing initial fundamental analysis…")
+        threading.Thread(target=run_long_term_analysis_job, daemon=True).start()
+
+    if not has_intraday and _is_market_hours():
+        logger.info("[Startup] No intraday data and market is open — queuing initial scan…")
+        threading.Thread(target=run_intraday_refresh, daemon=True).start()
 
 
 def stop_scheduler():
