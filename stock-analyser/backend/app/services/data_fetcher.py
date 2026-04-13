@@ -134,3 +134,27 @@ def fetch_index_data(index_symbol: str = "^NSEI", period: str = "3mo") -> Option
 def clear_fundamental_cache():
     """Clear the in-memory fundamentals cache (call at start of each analysis run)."""
     _fundamental_cache.clear()
+
+
+def fetch_stock_news(symbol: str, max_items: int = 5) -> list[dict]:
+    """
+    Fetch latest news headlines for a stock via yfinance.
+    Returns a list of dicts with title, publisher, link, and published_at.
+    """
+    nse_sym = get_nse_symbol(symbol)
+    try:
+        ticker = yf.Ticker(nse_sym)
+        raw_news = ticker.news or []
+        results = []
+        for item in raw_news[:max_items]:
+            results.append({
+                "title":        item.get("title", ""),
+                "publisher":    item.get("publisher", ""),
+                "link":         item.get("link", ""),
+                "published_at": item.get("providerPublishTime", 0),  # unix timestamp
+            })
+        return results
+    except Exception as exc:
+        logger.error(f"Error fetching news for {symbol}: {exc}")
+        return []
+

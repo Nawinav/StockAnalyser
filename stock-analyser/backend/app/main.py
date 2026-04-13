@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_cors_origins, settings
 from app.database import init_db
 from app.scheduler import start_scheduler, stop_scheduler
-from app.routers import recommendations, stocks, market
+from app.routers import recommendations, stocks, market, intraday, longterm, watchlist
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,6 +61,9 @@ app.add_middleware(
 app.include_router(recommendations.router, prefix="/api")
 app.include_router(stocks.router,          prefix="/api")
 app.include_router(market.router,          prefix="/api")
+app.include_router(intraday.router,        prefix="/api")
+app.include_router(longterm.router,        prefix="/api")
+app.include_router(watchlist.router,       prefix="/api")
 
 
 @app.get("/", tags=["Health"])

@@ -1,6 +1,9 @@
 """
-Scheduler — triggers the daily pre-market analysis at 08:30 IST.
-Uses APScheduler with IST timezone (Asia/Kolkata).
+Scheduler — two automatic jobs:
+  1. Intraday refresh: every 10 minutes during market hours (09:15–15:30 IST, Mon–Fri)
+  2. Long-term analysis: once daily at 08:00 IST (Mon–Fri)
+
+The manual "Run Analysis Now" trigger has been removed — everything is automatic.
 """
 import logging
 from datetime import date, datetime
@@ -8,6 +11,8 @@ from datetime import date, datetime
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 
@@ -15,52 +20,55 @@ logger = logging.getLogger(__name__)
 
 _scheduler: BackgroundScheduler | None = None
 
+IST = pytz.timezone("Asia/Kolkata")
 
-def run_daily_analysis():
+
+def _is_market_hours() -> bool:
+    """Return True if current IST time is within 09:15–15:30 on a weekday."""
+    now = datetime.now(IST)
+    if now.weekday() >= 5:   # Saturday / Sunday
+        return False
+    t = now.time()
+    market_open  = datetime.strptime(settings.MARKET_OPEN_TIME,  "%H:%M").time()
+    market_close = datetime.strptime(settings.MARKET_CLOSE_TIME, "%H:%M").time()
+    return market_open <= t <= market_close
+
+
+# ── Job 1: Intraday — every 10 minutes during market hours ───────────────────
+
+def run_intraday_refresh():
     """
-    Core job: scan the market, score stocks, persist top-10 to the database.
-    Runs at 08:30 IST every weekday (Mon–Fri).
+    Runs every 10 minutes during market hours.
+    Scans all NSE stocks using pure technical analysis and saves a fresh snapshot.
     """
+    if not _is_market_hours():
+        logger.debug("[Intraday] Outside market hours — skipping")
+        return
+
     from sqlalchemy.orm import Session
     from app.database import SessionLocal
-    from app.models import DailyRecommendation, AnalysisRun
+    from app.models import IntradaySnapshot
     from app.services.data_fetcher import fetch_index_data
     from app.services.technical_analysis import calculate_all_indicators, get_market_trend
     from app.services.stock_scorer import run_full_analysis
 
     db: Session = SessionLocal()
-    today = date.today()
-    status = "failed"
-    error_msg = None
-    nifty_trend = "neutral"
-    scanned = 0
-    qualified = 0
+    now_ist = datetime.now(IST)
 
     try:
-        logger.info(f"[Scheduler] Daily analysis started for {today}")
+        logger.info(f"[Intraday] Refresh started at {now_ist.strftime('%H:%M IST')}")
 
-        # 1. Determine overall market trend
         nifty_df = fetch_index_data("^NSEI", period="3mo")
+        nifty_trend = "neutral"
         if nifty_df is not None:
-            nifty_with_indicators = calculate_all_indicators(nifty_df)
-            nifty_trend = get_market_trend(nifty_with_indicators)
-        logger.info(f"[Scheduler] NIFTY trend: {nifty_trend}")
+            nifty_trend = get_market_trend(calculate_all_indicators(nifty_df))
 
-        # 2. Scan stocks
-        from app.services.nse_stocks import get_all_symbols
-        scanned = len(get_all_symbols())
         top_stocks = run_full_analysis(market_trend=nifty_trend)
-        qualified = len(top_stocks)
 
-        # 3. Remove previous recommendations for today (idempotent re-run)
-        db.query(DailyRecommendation).filter(
-            DailyRecommendation.trade_date == today
-        ).delete(synchronize_session=False)
-
-        # 4. Persist new recommendations
+        snapshot_at = datetime.now(IST)
         for rank, stock in enumerate(top_stocks, start=1):
-            rec = DailyRecommendation(
-                trade_date=today,
+            row = IntradaySnapshot(
+                snapshot_at=snapshot_at,
                 rank=rank,
                 symbol=stock["symbol"],
                 company_name=stock.get("company_name"),
@@ -85,29 +93,80 @@ def run_daily_analysis():
                 pe_ratio=stock.get("pe_ratio"),
                 market_cap_cr=stock.get("market_cap_cr"),
                 reasons="|".join(stock.get("reasons", [])),
+                nifty_trend=nifty_trend,
             )
-            db.add(rec)
+            db.add(row)
 
         db.commit()
-        status = "success"
-        logger.info(f"[Scheduler] Saved {qualified} recommendations for {today}")
+        logger.info(f"[Intraday] Saved {len(top_stocks)} picks  (NIFTY: {nifty_trend})")
 
     except Exception as exc:
         db.rollback()
-        error_msg = str(exc)
-        logger.exception(f"[Scheduler] Analysis failed: {exc}")
+        logger.exception(f"[Intraday] Refresh failed: {exc}")
     finally:
-        # Log the run
-        run_log = AnalysisRun(
-            run_date=today,
-            stocks_scanned=scanned,
-            stocks_qualified=qualified,
-            nifty_trend=nifty_trend,
-            status=status,
-            error_message=error_msg,
-        )
-        db.add(run_log)
+        db.close()
+
+
+# ── Job 2: Long-term — once daily at 08:00 IST ───────────────────────────────
+
+def run_long_term_analysis_job():
+    """
+    Runs once per trading day at 08:00 IST.
+    Scores stocks on fundamental quality + growth and persists top-10.
+    """
+    from sqlalchemy.orm import Session
+    from app.database import SessionLocal
+    from app.models import LongTermRecommendation
+    from app.services.long_term_scorer import run_long_term_analysis
+
+    db: Session = SessionLocal()
+    today = date.today()
+
+    try:
+        logger.info(f"[LongTerm] Analysis started for {today}")
+        top_stocks = run_long_term_analysis()
+
+        db.query(LongTermRecommendation).filter(
+            LongTermRecommendation.run_date == today
+        ).delete(synchronize_session=False)
+
+        for rank, stock in enumerate(top_stocks, start=1):
+            row = LongTermRecommendation(
+                run_date=today,
+                rank=rank,
+                symbol=stock["symbol"],
+                company_name=stock.get("company_name"),
+                sector=stock.get("sector"),
+                industry=stock.get("industry"),
+                current_price=stock.get("current_price"),
+                week52_high=stock.get("week52_high"),
+                week52_low=stock.get("week52_low"),
+                pe_ratio=stock.get("pe_ratio"),
+                pb_ratio=stock.get("pb_ratio"),
+                eps_ttm=stock.get("eps_ttm"),
+                roe=stock.get("roe"),
+                debt_to_equity=stock.get("debt_to_equity"),
+                revenue_growth=stock.get("revenue_growth"),
+                earnings_growth=stock.get("earnings_growth"),
+                profit_margins=stock.get("profit_margins"),
+                dividend_yield=stock.get("dividend_yield"),
+                market_cap_cr=stock.get("market_cap_cr"),
+                fundamental_score=stock.get("fundamental_score"),
+                technical_score=stock.get("technical_score"),
+                total_score=stock.get("total_score"),
+                hold_period=stock.get("hold_period"),
+                hold_rationale=stock.get("hold_rationale"),
+                reasons="|".join(stock.get("reasons", [])),
+            )
+            db.add(row)
+
         db.commit()
+        logger.info(f"[LongTerm] Saved {len(top_stocks)} picks for {today}")
+
+    except Exception as exc:
+        db.rollback()
+        logger.exception(f"[LongTerm] Analysis failed: {exc}")
+    finally:
         db.close()
 
 
@@ -116,30 +175,28 @@ def start_scheduler():
     if _scheduler and _scheduler.running:
         return
 
-    ist = pytz.timezone(settings.TIMEZONE)
-    _scheduler = BackgroundScheduler(timezone=ist)
+    _scheduler = BackgroundScheduler(timezone=IST)
 
-    # Parse analysis time (default 08:30)
-    hour, minute = map(int, settings.PRE_MARKET_ANALYSIS_TIME.split(":"))
-
+    # Job 1 — Intraday refresh every 10 minutes
     _scheduler.add_job(
-        func=run_daily_analysis,
-        trigger=CronTrigger(
-            day_of_week="mon-fri",
-            hour=hour,
-            minute=minute,
-            timezone=ist,
-        ),
-        id="daily_analysis",
-        name="Daily Pre-Market Stock Analysis",
+        func=run_intraday_refresh,
+        trigger=IntervalTrigger(minutes=10, timezone=IST),
+        id="intraday_refresh",
+        name="Intraday 10-min Stock Refresh",
+        replace_existing=True,
+    )
+
+    # Job 2 — Long-term analysis once daily at 08:00 IST (Mon–Fri)
+    _scheduler.add_job(
+        func=run_long_term_analysis_job,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=8, minute=0, timezone=IST),
+        id="longterm_analysis",
+        name="Daily Long-Term Fundamental Analysis",
         replace_existing=True,
     )
 
     _scheduler.start()
-    logger.info(
-        f"[Scheduler] Started — daily analysis scheduled at "
-        f"{settings.PRE_MARKET_ANALYSIS_TIME} IST (Mon-Fri)"
-    )
+    logger.info("[Scheduler] Started — intraday every 10 min | long-term daily at 08:00 IST")
 
 
 def stop_scheduler():
@@ -147,3 +204,4 @@ def stop_scheduler():
     if _scheduler and _scheduler.running:
         _scheduler.shutdown(wait=False)
         logger.info("[Scheduler] Stopped")
+

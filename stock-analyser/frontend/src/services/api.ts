@@ -1,6 +1,9 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { TodayResponse, MarketStatus, StockAnalysis, Recommendation } from '../types';
+import {
+  TodayResponse, MarketStatus, StockAnalysis, Recommendation,
+  IntradayResponse, LongTermResponse, NewsItem, WatchlistItem,
+} from '../types';
 
 // Priority order:
 //   1. EXPO_PUBLIC_API_URL env var  (set in .env or Vercel/Netlify env)
@@ -48,8 +51,47 @@ export const getStockAnalysis = async (symbol: string): Promise<StockAnalysis> =
   return data;
 };
 
-export const triggerAnalysis = async (): Promise<{ message: string }> => {
-  const { data } = await api.post<{ message: string }>('/recommendations/trigger');
+// Intraday
+export const getIntradayTop10 = async (): Promise<IntradayResponse> => {
+  const { data } = await api.get<IntradayResponse>('/intraday/top10');
+  return data;
+};
+
+// Long-term
+export const getLongTermTop10 = async (): Promise<LongTermResponse> => {
+  const { data } = await api.get<LongTermResponse>('/longterm/top10');
+  return data;
+};
+
+export const getStockNews = async (symbol: string): Promise<NewsItem[]> => {
+  const { data } = await api.get<NewsItem[]>(`/longterm/${symbol}/news`);
+  return data;
+};
+
+// Watchlist
+export const getWatchlist = async (includeNews = false): Promise<WatchlistItem[]> => {
+  const { data } = await api.get<WatchlistItem[]>(`/watchlist/?include_news=${includeNews}`);
+  return data;
+};
+
+export const addToWatchlist = async (payload: {
+  symbol: string;
+  company_name?: string;
+  sector?: string;
+  added_price?: number;
+  score?: number;
+  hold_period?: string;
+}): Promise<WatchlistItem> => {
+  const { data } = await api.post<WatchlistItem>('/watchlist/', payload);
+  return data;
+};
+
+export const removeFromWatchlist = async (symbol: string): Promise<void> => {
+  await api.delete(`/watchlist/${symbol}`);
+};
+
+export const getWatchlistNews = async (symbol: string): Promise<NewsItem[]> => {
+  const { data } = await api.get<NewsItem[]>(`/watchlist/${symbol}/news`);
   return data;
 };
 

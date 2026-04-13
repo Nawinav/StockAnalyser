@@ -8,20 +8,23 @@ import { HomeScreen }        from '../screens/HomeScreen';
 import { HistoryScreen }     from '../screens/HistoryScreen';
 import { SearchScreen }      from '../screens/SearchScreen';
 import { StockDetailScreen } from '../screens/StockDetailScreen';
+import { WatchlistScreen }   from '../screens/WatchlistScreen';
 import { Colors }            from '../theme';
 import { Recommendation }    from '../types';
 
 type RootTabParamList = {
-  Home: undefined;
-  History: undefined;
-  Search: undefined;
+  Home:      undefined;
+  Watchlist: undefined;
+  History:   undefined;
+  Search:    undefined;
 };
 
 type RootStackParamList = {
-  HomeMain: undefined;
-  HistoryMain: undefined;
-  SearchMain: undefined;
-  StockDetail: { symbol: string; rec?: Recommendation };
+  HomeMain:      undefined;
+  WatchlistMain: undefined;
+  HistoryMain:   undefined;
+  SearchMain:    undefined;
+  StockDetail:   { symbol: string; rec?: Recommendation };
 };
 
 const Tab   = createBottomTabNavigator<RootTabParamList>();
@@ -40,8 +43,22 @@ function HomeStack() {
       <Stack.Screen
         name="HomeMain"
         component={HomeScreen}
-        options={{ title: 'Today\'s Picks' }}
+        options={{ title: 'Market Picks' }}
       />
+      <Stack.Screen
+        name="StockDetail"
+        options={({ route }) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
+      >
+        {(props) => <StockDetailScreen {...props} />}
+      </Stack.Screen>
+    </Stack.Navigator>
+  );
+}
+
+function WatchlistStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="WatchlistMain" component={WatchlistScreen} options={{ title: 'Watchlist' }} />
       <Stack.Screen
         name="StockDetail"
         options={({ route }) => ({ title: route.params?.symbol ?? 'Stock Analysis' })}
@@ -96,16 +113,21 @@ export const AppNavigator = () => (
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: React.ComponentProps<typeof Ionicons>['name'] = 'home';
-          if (route.name === 'Home')    iconName = focused ? 'home'          : 'home-outline';
-          if (route.name === 'History') iconName = focused ? 'time'          : 'time-outline';
+          if (route.name === 'Home')
+            iconName = focused ? 'home'          : 'home-outline';
+          if (route.name === 'Watchlist')
+            iconName = focused ? 'bookmark'      : 'bookmark-outline';
+          if (route.name === 'History')
+            iconName = focused ? 'time'          : 'time-outline';
           if (route.name === 'Search')  iconName = focused ? 'search'        : 'search-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Home"    component={HomeStack}    options={{ title: "Today's Picks" }} />
-      <Tab.Screen name="History" component={HistoryStack} options={{ title: 'History' }} />
-      <Tab.Screen name="Search"  component={SearchStack}  options={{ title: 'Search' }} />
+      <Tab.Screen name="Home"      component={HomeStack}      options={{ title: 'Picks' }} />
+      <Tab.Screen name="Watchlist" component={WatchlistStack} options={{ title: 'Watchlist' }} />
+      <Tab.Screen name="History"   component={HistoryStack}   options={{ title: 'History' }} />
+      <Tab.Screen name="Search"    component={SearchStack}    options={{ title: 'Search' }} />
     </Tab.Navigator>
   </NavigationContainer>
 );
