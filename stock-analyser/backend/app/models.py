@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, Date, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, Date, ForeignKey
 from sqlalchemy.sql import func
 from app.database import Base
-import datetime
 
 
 class DailyRecommendation(Base):
@@ -162,4 +161,76 @@ class WatchlistItem(Base):
     notes = Column(Text)
     added_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class TradingControl(Base):
+    """Singleton row that controls whether automation can place or manage trades."""
+    __tablename__ = "trading_control"
+
+    id = Column(Integer, primary_key=True, default=1)
+    broker = Column(String(20), nullable=False, default="upstox")
+    trading_mode = Column(String(20), nullable=False, default="paper")
+    paper_trading_enabled = Column(Boolean, nullable=False, default=True)
+    live_trading_enabled = Column(Boolean, nullable=False, default=False)
+    emergency_stop = Column(Boolean, nullable=False, default=False)
+    max_daily_loss_pct = Column(Float, nullable=False, default=2.0)
+    max_open_positions = Column(Integer, nullable=False, default=3)
+    max_position_value = Column(Float, nullable=False, default=15000.0)
+    max_trades_per_day = Column(Integer, nullable=False, default=5)
+    auto_square_off_time = Column(String(5), nullable=False, default="15:20")
+    notes = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class TradeOrder(Base):
+    """Paper/live trade lifecycle with enough data to monitor and audit decisions."""
+    __tablename__ = "trade_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    company_name = Column(String(100))
+    side = Column(String(10), nullable=False, default="BUY")
+    quantity = Column(Integer, nullable=False)
+    status = Column(String(30), nullable=False, default="open", index=True)
+    broker = Column(String(20), nullable=False, default="upstox")
+    mode = Column(String(20), nullable=False, default="paper")
+    source = Column(String(20), nullable=False, default="intraday")
+    source_rank = Column(Integer, nullable=True)
+    instrument_token = Column(String(60), nullable=True)
+
+    requested_price = Column(Float, nullable=True)
+    entry_price = Column(Float, nullable=True)
+    current_price = Column(Float, nullable=True)
+    stop_loss = Column(Float, nullable=True)
+    target1 = Column(Float, nullable=True)
+    target2 = Column(Float, nullable=True)
+    risk_per_share = Column(Float, nullable=True)
+    position_value = Column(Float, nullable=True)
+
+    broker_order_id = Column(String(80), nullable=True)
+    exit_price = Column(Float, nullable=True)
+    exit_reason = Column(String(40), nullable=True)
+    realized_pnl = Column(Float, nullable=True)
+    realized_pnl_pct = Column(Float, nullable=True)
+    unrealized_pnl = Column(Float, nullable=True)
+    target1_reached = Column(Boolean, nullable=False, default=False)
+
+    opened_at = Column(DateTime(timezone=True), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class TradeEvent(Base):
+    """Append-only event log for paper/live trade actions and risk interventions."""
+    __tablename__ = "trade_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("trade_orders.id"), nullable=True, index=True)
+    event_type = Column(String(40), nullable=False, index=True)
+    symbol = Column(String(20), nullable=True)
+    message = Column(Text, nullable=False)
+    payload = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 

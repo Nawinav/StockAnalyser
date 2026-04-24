@@ -139,6 +139,33 @@ The analysis scans ~150 stocks and takes **5–10 minutes** depending on your in
 
 ---
 
+## Staged Trading Rollout
+
+The backend now includes a staged execution layer with **Upstox** as the first broker target.
+
+### Safety Defaults
+- `TRADING_MODE=paper`
+- `ALLOW_LIVE_TRADING=False`
+- paper trades are created only from the latest recommendation set
+- server-side stop-loss, target monitoring, max daily loss, and emergency stop are enforced
+
+### Key API Endpoints
+- `GET /api/trading/control` â€” trading guardrails + broker readiness
+- `GET /api/trading/broker/status` â€” Upstox configuration status
+- `GET /api/trading/backtest?days=20` â€” backtest stored daily recommendations
+- `POST /api/trading/paper/start` â€” start paper trades from `intraday` or `daily` picks
+- `POST /api/trading/paper/monitor` â€” run one monitoring cycle now
+- `GET /api/trading/orders` â€” recent paper/live order state
+- `POST /api/trading/control` â€” toggle emergency stop or paper/live flags
+- `POST /api/trading/square-off` â€” close every open position immediately
+
+### Live Broker Notes
+- Live orders remain blocked until `ALLOW_LIVE_TRADING=True`
+- Upstox live order submission currently expects an `instrument_token` per order
+- paper mode and backtests should be validated before enabling any live route
+
+---
+
 ## Phone / Tablet Access
 
 Update the `BASE_URL` in `frontend/src/services/api.ts` with your PC's local IP:

@@ -131,6 +131,62 @@ def fetch_index_data(index_symbol: str = "^NSEI", period: str = "3mo") -> Option
         return None
 
 
+def fetch_latest_price(symbol: str) -> Optional[float]:
+    """
+    Fetch the latest available traded price for a symbol.
+    Falls back to the latest close if 1-minute data is unavailable.
+    """
+    nse_sym = get_nse_symbol(symbol)
+
+    try:
+        ticker = yf.Ticker(nse_sym)
+
+        intraday = ticker.history(period="1d", interval="1m", auto_adjust=False, actions=False)
+        if intraday is not None and not intraday.empty:
+            latest = intraday["Close"].dropna()
+            if not latest.empty:
+                return round(float(latest.iloc[-1]), 2)
+
+        fast_info = getattr(ticker, "fast_info", None)
+        if fast_info:
+            last_price = fast_info.get("lastPrice") or fast_info.get("last_price")
+            if last_price:
+                return round(float(last_price), 2)
+
+        recent = ticker.history(period="5d", auto_adjust=False, actions=False)
+        if recent is not None and not recent.empty:
+            latest_close = recent["Close"].dropna()
+            if not latest_close.empty:
+                return round(float(latest_close.iloc[-1]), 2)
+
+    except Exception as exc:
+        logger.error(f"Error fetching latest price for {symbol}: {exc}")
+
+    return None
+
+
+def fetch_trade_day_candle(symbol: str, trade_date) -> Optional[dict]:
+    """
+    Fetch the daily OHLC candle for a specific trading date.
+    Used for lightweight backtesting over stored recommendations.
+    """
+    df = fetch_ohlcv(symbol, period="6mo")
+    if df is None or df.empty:
+        return None
+
+    day_rows = df[df.index.date == trade_date]
+    if day_rows.empty:
+        return None
+
+    row = day_rows.iloc[-1]
+    return {
+        "open": round(float(row["open"]), 2),
+        "high": round(float(row["high"]), 2),
+        "low": round(float(row["low"]), 2),
+        "close": round(float(row["close"]), 2),
+    }
+
+
 def clear_fundamental_cache():
     """Clear the in-memory fundamentals cache (call at start of each analysis run)."""
     _fundamental_cache.clear()

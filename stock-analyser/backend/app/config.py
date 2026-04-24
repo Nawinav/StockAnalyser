@@ -36,6 +36,25 @@ class Settings(BaseSettings):
     TARGET1_RR_RATIO: float = 1.5           # Target 1: 1:1.5 Risk:Reward
     TARGET2_RR_RATIO: float = 2.5           # Target 2: 1:2.5 Risk:Reward
 
+    # Staged trading automation
+    TRADING_BROKER: str = "upstox"
+    TRADING_MODE: str = "paper"             # paper or live
+    ENABLE_TRADING_AUTOMATION: bool = False
+    ALLOW_LIVE_TRADING: bool = False
+    PAPER_STARTING_CAPITAL: float = 100000.0
+    DEFAULT_CAPITAL_PER_TRADE: float = 10000.0
+    MAX_DAILY_LOSS_PCT: float = 2.0
+    MAX_OPEN_POSITIONS: int = 3
+    MAX_POSITION_VALUE: float = 15000.0
+    MAX_TRADES_PER_DAY: int = 5
+    AUTO_SQUARE_OFF_TIME: str = "15:20"
+
+    # Upstox broker integration
+    UPSTOX_API_BASE_URL: str = "https://api-hft.upstox.com/v2"
+    UPSTOX_ACCESS_TOKEN: str = ""
+    UPSTOX_API_KEY: str = ""
+    UPSTOX_API_SECRET: str = ""
+
     # Data
     DATA_LOOKBACK_PERIOD: str = "6mo"       # Period for historical data
     DB_PATH: str = "stock_analyser.db"
